@@ -1,4 +1,5 @@
 import React from 'react';
+import { Eye, ZoomIn, Moon, Zap, AlignLeft, AlignCenter, AlignRight, AlignJustify, MoveVertical } from 'lucide-react';
 import './FloatingControls.css';
 
 interface FloatingControlsProps {
@@ -27,7 +28,7 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
   return (
     <div className="floating-controls">
       <div className="control-group">
-        <div className="control-icon" title="Focus Width">👁️</div>
+        <div className="control-icon" title="Focus Width"><Eye size={16} /></div>
         <input 
           type="range" 
           className="horizontal-slider"
@@ -43,7 +44,7 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
       <div className="control-divider" />
 
       <div className="control-group">
-        <div className="control-icon" title="Scale Strength">🔍</div>
+        <div className="control-icon" title="Scale Strength"><ZoomIn size={16} /></div>
         <input 
           type="range" 
           className="horizontal-slider"
@@ -59,7 +60,7 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
       <div className="control-divider" />
 
       <div className="control-group">
-        <div className="control-icon" title="Background Fade">🌗</div>
+        <div className="control-icon" title="Background Fade"><Moon size={16} /></div>
         <input 
           type="range" 
           className="horizontal-slider"
@@ -75,7 +76,7 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
       <div className="control-divider" />
 
       <div className="control-group">
-        <div className="control-icon" title="Smoothing Speed">⚡</div>
+        <div className="control-icon" title="Smoothing Speed"><Zap size={16} /></div>
         <input 
           type="range" 
           className="horizontal-slider"
@@ -91,16 +92,16 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
       <div className="control-divider" />
 
       <div className="control-group">
-        <button className={`icon-btn ${textAlign === 'left' ? 'active' : ''}`} onClick={() => setTextAlign('left')} title="Align Left">⬅️</button>
-        <button className={`icon-btn ${textAlign === 'center' ? 'active' : ''}`} onClick={() => setTextAlign('center')} title="Align Center">↔️</button>
-        <button className={`icon-btn ${textAlign === 'right' ? 'active' : ''}`} onClick={() => setTextAlign('right')} title="Align Right">➡️</button>
-        <button className={`icon-btn ${textAlign === 'justify' ? 'active' : ''}`} onClick={() => setTextAlign('justify')} title="Justify">🔠</button>
+        <button className={`icon-btn ${textAlign === 'left' ? 'active' : ''}`} onClick={() => setTextAlign('left')} title="Align Left"><AlignLeft size={16} /></button>
+        <button className={`icon-btn ${textAlign === 'center' ? 'active' : ''}`} onClick={() => setTextAlign('center')} title="Align Center"><AlignCenter size={16} /></button>
+        <button className={`icon-btn ${textAlign === 'right' ? 'active' : ''}`} onClick={() => setTextAlign('right')} title="Align Right"><AlignRight size={16} /></button>
+        <button className={`icon-btn ${textAlign === 'justify' ? 'active' : ''}`} onClick={() => setTextAlign('justify')} title="Justify"><AlignJustify size={16} /></button>
       </div>
 
       <div className="control-divider" />
 
       <div className="control-group">
-        <div className="control-icon" title="Line Spacing">↕️</div>
+        <div className="control-icon" title="Line Spacing"><MoveVertical size={16} /></div>
         <input 
           type="range" 
           className="horizontal-slider"

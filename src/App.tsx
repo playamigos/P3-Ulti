@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Play, Settings2 } from 'lucide-react';
 import './App.css';
 import TextViewer from './components/TextViewer';
 import FloatingControls from './components/FloatingControls';
@@ -49,14 +49,14 @@ function App() {
               onClick={() => setAutopilotActive(!autopilotActive)}
               title="Toggle Voice Autopilot"
             >
-              ✨ {autopilotActive ? 'Autopilot On' : 'Autopilot'}
+              <Play size={15} fill={autopilotActive ? "currentColor" : "none"} /> {autopilotActive ? 'Autopilot On' : 'Autopilot'}
             </button>
             <button 
               className={`sensor-btn controls-btn ${showControls ? 'active' : ''}`} 
               onClick={() => setShowControls(!showControls)}
               title="Toggle Formatting Controls"
             >
-              ⚙️ Controls
+              <Settings2 size={15} /> Controls
             </button>
           </div>
         </header>
