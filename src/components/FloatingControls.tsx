@@ -80,13 +80,14 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
           type="range" 
           className="horizontal-slider"
           min="0.05" 
-          max="1" 
+          max="1.5" 
           step="0.05" 
           value={transitionSpeed} 
           onChange={(e) => setTransitionSpeed(Number(e.target.value))}
         />
         <div className="control-value">{transitionSpeed.toFixed(2)}s</div>
       </div>
+
       <div className="control-divider" />
 
       <div className="control-group">

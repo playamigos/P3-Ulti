@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useState } from 'react';
 import './App.css';
 import TextViewer from './components/TextViewer';
@@ -13,26 +14,51 @@ function App() {
   const [textAlign, setTextAlign] = useLocalStorage<string>('ulti-textAlign', 'center');
   const [lineSpacing, setLineSpacing] = useLocalStorage<number>('ulti-lineSpacing', 3.5);
 
+  // Phase 3 Sensor Integrations States
+  // Single Autopilot state triggers autoplay and speech recognition concurrently
+  const [autopilotActive, setAutopilotActive] = useState<boolean>(false);
+  const [showControls, setShowControls] = useState<boolean>(false);
+  
+  const [readingPaceWPM, setReadingPaceWPM] = useLocalStorage<number>('ulti-readingPaceWPM', 200);
+
   return (
     <div className="app-container">
-      <FloatingControls 
-        focusRadius={focusRadius} 
-        setFocusRadius={setFocusRadius} 
-        transitionSpeed={transitionSpeed}
-        setTransitionSpeed={setTransitionSpeed}
-        scaleAmplitude={scaleAmplitude}
-        setScaleAmplitude={setScaleAmplitude}
-        fadeAmplitude={fadeAmplitude}
-        setFadeAmplitude={setFadeAmplitude}
-        textAlign={textAlign}
-        setTextAlign={setTextAlign}
-        lineSpacing={lineSpacing}
-        setLineSpacing={setLineSpacing}
-      />
+      {showControls && (
+        <FloatingControls 
+          focusRadius={focusRadius} 
+          setFocusRadius={setFocusRadius} 
+          transitionSpeed={transitionSpeed}
+          setTransitionSpeed={setTransitionSpeed}
+          scaleAmplitude={scaleAmplitude}
+          setScaleAmplitude={setScaleAmplitude}
+          fadeAmplitude={fadeAmplitude}
+          setFadeAmplitude={setFadeAmplitude}
+          textAlign={textAlign}
+          setTextAlign={setTextAlign}
+          lineSpacing={lineSpacing}
+          setLineSpacing={setLineSpacing}
+        />
+      )}
       
       <div className="main-content">
         <header className="app-header">
           <h1 className="app-title">Ulti</h1>
+          <div className="header-actions">
+            <button 
+              className={`sensor-btn autopilot-btn ${autopilotActive ? 'active' : ''}`} 
+              onClick={() => setAutopilotActive(!autopilotActive)}
+              title="Toggle Voice Autopilot"
+            >
+              ✨ {autopilotActive ? 'Autopilot On' : 'Autopilot'}
+            </button>
+            <button 
+              className={`sensor-btn controls-btn ${showControls ? 'active' : ''}`} 
+              onClick={() => setShowControls(!showControls)}
+              title="Toggle Formatting Controls"
+            >
+              ⚙️ Controls
+            </button>
+          </div>
         </header>
         
         <main className="app-main">
@@ -44,6 +70,13 @@ function App() {
             fadeAmplitude={fadeAmplitude}
             textAlign={textAlign}
             lineSpacing={lineSpacing}
+
+            // Sync all sensors and auto-advance engines directly to autopilot state
+            autoplayActive={autopilotActive}
+            setAutoplayActive={setAutopilotActive}
+            voiceSyncActive={autopilotActive}
+            readingPaceWPM={readingPaceWPM}
+            setReadingPaceWPM={setReadingPaceWPM}
           />
         </main>
       </div>

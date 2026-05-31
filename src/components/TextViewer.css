@@ -17,8 +17,8 @@
 .line {
   display: flex;
   align-items: center;
-  gap: 0.25em; /* Matches the natural width of a space character exactly */
-  white-space: nowrap; /* Forces line locking */
+  gap: 0.25em;
+  white-space: nowrap;
 }
 
 .word {
@@ -26,7 +26,8 @@
   opacity: 0.2;
   font-size: 1rem;
   transition-property: transform, opacity, color;
-  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); 
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition-duration: 0s; /* Default off; set via inline style when not autoplaying */
   cursor: default;
   will-change: transform, opacity;
   -webkit-font-smoothing: antialiased;
@@ -34,3 +35,61 @@
   transform-origin: center center;
   backface-visibility: hidden;
 }
+
+/* ─── Debug HUD (top-right corner) ─── */
+.telemetry-debug-hud {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  padding: 0.6rem 1.2rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  animation: slideInHud 0.4s cubic-bezier(0.25, 1, 0.5, 1) both;
+}
+
+.telemetry-hud-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+@keyframes slideInHud {
+  from { opacity: 0; transform: translateX(30px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.telemetry-label {
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.7;
+}
+
+.telemetry-value {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.speech-match {
+  color: #6366f1;
+}
+
+.speed-highlight {
+  color: #0ea5e9;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import './TextViewer.css';
 import { parseTextToWords, type ParsedWord } from '../utils/textParser';
+import { useVoiceSync } from '../hooks/useVoiceSync';
 
 interface TextViewerProps {
   text: string;
@@ -10,16 +11,29 @@ interface TextViewerProps {
   fadeAmplitude: number;
   textAlign: string;
   lineSpacing: number;
+
+  // Sensor Bindings
+  autoplayActive: boolean;
+  setAutoplayActive: (active: boolean) => void;
+  voiceSyncActive: boolean;
+  readingPaceWPM: number;
+  setReadingPaceWPM: (wpm: number) => void;
 }
 
 interface MeasuredWord extends ParsedWord {
   width: number;
 }
 
-const TextViewer: React.FC<TextViewerProps> = ({ text, focusRadius, transitionSpeed, scaleAmplitude, fadeAmplitude, textAlign, lineSpacing }) => {
+const TextViewer: React.FC<TextViewerProps> = ({ 
+  text, focusRadius, transitionSpeed, scaleAmplitude, fadeAmplitude, textAlign, lineSpacing,
+  autoplayActive, setAutoplayActive, voiceSyncActive, readingPaceWPM, setReadingPaceWPM
+}) => {
   const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
   const [structuredParagraphs, setStructuredParagraphs] = useState<{ id: string, lines: MeasuredWord[][] }[] | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Visual Telemetry Debug states
+  const [lastDetectedSpeechWord, setLastDetectedSpeechWord] = useState<string>('');
   
   const parsedParagraphs = useMemo(() => parseTextToWords(text), [text]);
 
@@ -75,6 +89,105 @@ const TextViewer: React.FC<TextViewerProps> = ({ text, focusRadius, transitionSp
     }
   }, [structuredParagraphs, activeWordIndex]);
 
+  // Total words count for bounds checking
+  const totalWordsCount = useMemo(() => {
+    if (!structuredParagraphs) return 0;
+    let count = 0;
+    structuredParagraphs.forEach(p => {
+      p.lines.forEach(l => {
+        count += l.length;
+      });
+    });
+    return count;
+  }, [structuredParagraphs]);
+
+  // 1. Baseline Auto-Advance Autoplay Engine (rAF-based for perfect timing, without drift)
+  const autoplayRef = useRef<{ lastTime: number; accumulated: number } | null>(null);
+
+  useEffect(() => {
+    if (!autoplayActive || structuredParagraphs === null || totalWordsCount === 0) {
+      autoplayRef.current = null;
+      return;
+    }
+
+    let rafId: number;
+
+    const tick = (now: number) => {
+      if (!autoplayRef.current) {
+        autoplayRef.current = { lastTime: now, accumulated: 0 };
+      }
+
+      const delta = now - autoplayRef.current.lastTime;
+      autoplayRef.current.lastTime = now;
+      autoplayRef.current.accumulated += delta;
+
+      const intervalMs = (60 / readingPaceWPM) * 1000;
+
+      if (autoplayRef.current.accumulated >= intervalMs) {
+        // Only deduct intervalMs once per tick, if it lagged multiple intervals we just snap
+        autoplayRef.current.accumulated %= intervalMs;
+
+        setActiveWordIndex((prev) => {
+          if (prev === null) return 0;
+          if (prev >= totalWordsCount - 1) {
+            setAutoplayActive(false);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }
+
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      autoplayRef.current = null;
+    };
+  }, [autoplayActive, readingPaceWPM, structuredParagraphs, totalWordsCount, setAutoplayActive]);
+
+  const lastScrollYRef = useRef<number | null>(null);
+
+  // 2. Viewport Smooth Auto-Scrolling to keep active focus centered vertically
+  useEffect(() => {
+    if (activeWordIndex === null || !containerRef.current || structuredParagraphs === null) return;
+    
+    const activeEl = containerRef.current.querySelector(`[data-global-index="${activeWordIndex}"]`) as HTMLElement;
+    if (activeEl) {
+      const offsetTop = activeEl.offsetTop;
+      
+      // Only trigger a new smooth scroll if we moved to a new line (offsetTop changed significantly)
+      if (lastScrollYRef.current === null || Math.abs(lastScrollYRef.current - offsetTop) > 20) {
+        lastScrollYRef.current = offsetTop;
+        activeEl.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+          inline: 'nearest'
+        });
+      }
+    }
+  }, [activeWordIndex, structuredParagraphs]);
+
+  // 3. Voice Synchronization Sensor integration
+  useVoiceSync({
+    active: voiceSyncActive,
+    activeWordIndex,
+    setActiveWordIndex,
+    readingPaceWPM,
+    setReadingPaceWPM,
+    structuredParagraphs,
+    onSpeechDetected: setLastDetectedSpeechWord
+  });
+
+  // Reset telemetry stats if Autopilot is toggled off
+  useEffect(() => {
+    if (!autoplayActive) {
+      setLastDetectedSpeechWord('');
+    }
+  }, [autoplayActive]);
+
   // Measurement Render Pass (Invisible)
   if (structuredParagraphs === null) {
     return (
@@ -97,7 +210,7 @@ const TextViewer: React.FC<TextViewerProps> = ({ text, focusRadius, transitionSp
 
   // Final Render Pass (Visible, Locked Lines)
   return (
-    <div className="text-viewer">
+    <div className="text-viewer" ref={containerRef}>
       <div className="reader-container">
         {structuredParagraphs.map((paragraph) => (
           <div key={paragraph.id} className="reader-paragraph">
@@ -109,9 +222,16 @@ const TextViewer: React.FC<TextViewerProps> = ({ text, focusRadius, transitionSp
 
               // Calculate scales for each word in the line
               const lineWithStyles = line.map((word) => {
-                const baseStyle = { 
-                  transitionDuration: `${transitionSpeed}s`,
-                  color: 'var(--text-primary)'
+                const intervalMs = (60 / readingPaceWPM) * 1000;
+                
+                // Use perfectly matched linear transition during autoplay for seamless continuous sliding
+                const dynamicTransitionDuration = autoplayActive ? `${intervalMs}ms` : `${transitionSpeed}s`;
+                const dynamicTransitionTiming = autoplayActive ? 'linear' : 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+
+                const baseStyle: Record<string, any> = { 
+                  color: 'var(--text-primary)',
+                  transitionDuration: dynamicTransitionDuration,
+                  transitionTimingFunction: dynamicTransitionTiming
                 };
                 
                 const baselineOpacity = 1 - fadeAmplitude;
@@ -158,7 +278,7 @@ const TextViewer: React.FC<TextViewerProps> = ({ text, focusRadius, transitionSp
               // Calculate shifts (translations) for each word
               const shifts = new Array(line.length).fill(0);
               
-              if (activeWordIndex !== null) {
+              if (activeWordIndex !== null && maxScale > 1) {
                 shifts[A] = 0;
 
                 // Words to the right
@@ -195,8 +315,8 @@ const TextViewer: React.FC<TextViewerProps> = ({ text, focusRadius, transitionSp
                       <span
                         key={item.word.id}
                         className="word"
+                        data-global-index={item.word.globalIndex}
                         style={style}
-                        onMouseEnter={() => setActiveWordIndex(item.word.globalIndex)}
                       >
                         {item.word.text}
                       </span>
@@ -208,6 +328,23 @@ const TextViewer: React.FC<TextViewerProps> = ({ text, focusRadius, transitionSp
           </div>
         ))}
       </div>
+
+      {/* Minimal WPM HUD Overlay */}
+      {autoplayActive && (
+        <div className="telemetry-debug-hud">
+          {lastDetectedSpeechWord && (
+             <div className="telemetry-hud-group">
+               <span className="telemetry-label">Heard:</span>
+               <span className="telemetry-value speech-match">"{lastDetectedSpeechWord}"</span>
+             </div>
+          )}
+          <div className="telemetry-hud-group">
+            <span className="telemetry-label">Speed:</span>
+            <span className="telemetry-value speed-highlight">{readingPaceWPM} WPM</span>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
