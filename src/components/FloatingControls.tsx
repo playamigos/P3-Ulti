@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, ZoomIn, Moon, Zap, AlignLeft, AlignCenter, AlignRight, AlignJustify, MoveVertical } from 'lucide-react';
+import { Eye, ZoomIn, Moon, Zap, AlignLeft, AlignCenter, AlignRight, AlignJustify, MoveVertical, ChevronsDown } from 'lucide-react';
 import './FloatingControls.css';
 
 interface FloatingControlsProps {
@@ -15,6 +15,8 @@ interface FloatingControlsProps {
   setTextAlign: (align: string) => void;
   lineSpacing: number;
   setLineSpacing: (spacing: number) => void;
+  scrollSpeed: number;
+  setScrollSpeed: (speed: number) => void;
 }
 
 const FloatingControls: React.FC<FloatingControlsProps> = ({ 
@@ -23,7 +25,8 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
   scaleAmplitude, setScaleAmplitude,
   fadeAmplitude, setFadeAmplitude,
   textAlign, setTextAlign,
-  lineSpacing, setLineSpacing
+  lineSpacing, setLineSpacing,
+  scrollSpeed, setScrollSpeed
 }) => {
   return (
     <div className="floating-controls">
@@ -112,6 +115,22 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
           onChange={(e) => setLineSpacing(Number(e.target.value))}
         />
         <div className="control-value">{lineSpacing.toFixed(1)}</div>
+      </div>
+
+      <div className="control-divider" />
+
+      <div className="control-group" data-tooltip="Auto-Scroll Speed: Smoothness of line transitions">
+        <div className="control-icon"><ChevronsDown size={16} /></div>
+        <input 
+          type="range" 
+          className="horizontal-slider"
+          min="0.01" 
+          max="0.20" 
+          step="0.01" 
+          value={scrollSpeed} 
+          onChange={(e) => setScrollSpeed(Number(e.target.value))}
+        />
+        <div className="control-value">{scrollSpeed.toFixed(2)}</div>
       </div>
     </div>
   );

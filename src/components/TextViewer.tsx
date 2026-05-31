@@ -11,6 +11,7 @@ interface TextViewerProps {
   fadeAmplitude: number;
   textAlign: string;
   lineSpacing: number;
+  scrollSpeed: number;
 
   // Sensor Bindings
   autoplayActive: boolean;
@@ -25,7 +26,7 @@ interface MeasuredWord extends ParsedWord {
 }
 
 const TextViewer: React.FC<TextViewerProps> = ({ 
-  text, focusRadius, transitionSpeed, scaleAmplitude, fadeAmplitude, textAlign, lineSpacing,
+  text, focusRadius, transitionSpeed, scaleAmplitude, fadeAmplitude, textAlign, lineSpacing, scrollSpeed,
   autoplayActive, setAutoplayActive, voiceSyncActive, readingPaceWPM, setReadingPaceWPM
 }) => {
   const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
@@ -171,7 +172,7 @@ const TextViewer: React.FC<TextViewerProps> = ({
     }
   }, [activeWordIndex, structuredParagraphs, autoplayActive]);
 
-  // Continuously lerp window scroll towards target for buttery smoothness
+  // Continuously lerp window scroll towards target for buttery smoothness using Spring Physics
   useEffect(() => {
     let rafId: number;
     let isUserScrolling = false;
@@ -189,14 +190,24 @@ const TextViewer: React.FC<TextViewerProps> = ({
     window.addEventListener('wheel', handleManualScroll, { passive: true });
     window.addEventListener('touchmove', handleManualScroll, { passive: true });
 
+    let velocity = 0;
+
     const tick = () => {
       if (!isUserScrolling && targetScrollYRef.current !== null) {
         const currentY = window.scrollY;
         const diff = targetScrollYRef.current - currentY;
         
-        if (Math.abs(diff) > 0.5) {
-          // Lerp factor 0.08 creates a smooth cinematic pan
-          window.scrollTo(0, currentY + diff * 0.08);
+        // Spring Physics parameters
+        // Tension controls acceleration (pull strength), derived from user's scrollSpeed setting
+        const tension = scrollSpeed * 0.5; 
+        // Friction heavily damps the spring so it gracefully glides to a halt without bouncing
+        const friction = 0.85; 
+        
+        velocity += diff * tension;
+        velocity *= friction;
+        
+        if (Math.abs(velocity) > 0.1 || Math.abs(diff) > 0.5) {
+          window.scrollTo(0, currentY + velocity);
         } else {
           window.scrollTo(0, targetScrollYRef.current);
           targetScrollYRef.current = null;
@@ -212,7 +223,7 @@ const TextViewer: React.FC<TextViewerProps> = ({
       window.removeEventListener('wheel', handleManualScroll);
       window.removeEventListener('touchmove', handleManualScroll);
     };
-  }, []);
+  }, [scrollSpeed]);
 
   // 3. Voice Synchronization Sensor integration
   useVoiceSync({

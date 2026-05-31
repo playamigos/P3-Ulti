@@ -13,6 +13,7 @@ function App() {
   const [fadeAmplitude, setFadeAmplitude] = useLocalStorage<number>('ulti-fadeAmplitude', 0.4);
   const [textAlign, setTextAlign] = useLocalStorage<string>('ulti-textAlign', 'center');
   const [lineSpacing, setLineSpacing] = useLocalStorage<number>('ulti-lineSpacing', 3.5);
+  const [scrollSpeed, setScrollSpeed] = useLocalStorage<number>('ulti-scrollSpeed', 0.05);
 
   // Phase 3 Sensor Integrations States
   // Single Autopilot state triggers autoplay and speech recognition concurrently
@@ -51,6 +52,8 @@ function App() {
           setTextAlign={setTextAlign}
           lineSpacing={lineSpacing}
           setLineSpacing={setLineSpacing}
+          scrollSpeed={scrollSpeed}
+          setScrollSpeed={setScrollSpeed}
         />
       )}
       
@@ -84,6 +87,7 @@ function App() {
             fadeAmplitude={fadeAmplitude}
             textAlign={textAlign}
             lineSpacing={lineSpacing}
+            scrollSpeed={scrollSpeed}
 
             // Sync all sensors and auto-advance engines directly to autopilot state
             autoplayActive={autopilotActive}
