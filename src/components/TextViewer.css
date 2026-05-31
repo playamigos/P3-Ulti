@@ -22,14 +22,15 @@
 }
 
 .word {
+  display: inline-block;
   opacity: 0.2;
   font-size: 1rem;
-  transition-property: font-size, opacity, font-weight, color;
-  transition-timing-function: ease-in-out; 
+  transition-property: transform, opacity, color;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1); 
   cursor: default;
-  will-change: font-size, opacity, font-weight;
+  will-change: transform, opacity;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transform: translateZ(0); /* Hardware acceleration to reduce layout jitter */
+  transform-origin: center center;
   backface-visibility: hidden;
 }
