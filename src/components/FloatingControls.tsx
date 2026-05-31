@@ -27,13 +27,13 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
 }) => {
   return (
     <div className="floating-controls">
-      <div className="control-group">
-        <div className="control-icon" title="Focus Width"><Eye size={16} /></div>
+      <div className="control-group" data-tooltip="Focus Width: Number of words highlighted">
+        <div className="control-icon"><Eye size={16} /></div>
         <input 
           type="range" 
           className="horizontal-slider"
           min="0" 
-          max="6" 
+          max="12" 
           step="1" 
           value={focusRadius} 
           onChange={(e) => setFocusRadius(Number(e.target.value))}
@@ -43,12 +43,12 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
 
       <div className="control-divider" />
 
-      <div className="control-group">
-        <div className="control-icon" title="Scale Strength"><ZoomIn size={16} /></div>
+      <div className="control-group" data-tooltip="Scale Strength: Magnification of focused word">
+        <div className="control-icon"><ZoomIn size={16} /></div>
         <input 
           type="range" 
           className="horizontal-slider"
-          min="0.5" 
+          min="0.0" 
           max="3.0" 
           step="0.1" 
           value={scaleAmplitude} 
@@ -59,8 +59,8 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
 
       <div className="control-divider" />
 
-      <div className="control-group">
-        <div className="control-icon" title="Background Fade"><Moon size={16} /></div>
+      <div className="control-group" data-tooltip="Background Fade: Dimming of unfocused text">
+        <div className="control-icon"><Moon size={16} /></div>
         <input 
           type="range" 
           className="horizontal-slider"
@@ -75,8 +75,8 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
 
       <div className="control-divider" />
 
-      <div className="control-group">
-        <div className="control-icon" title="Smoothing Speed"><Zap size={16} /></div>
+      <div className="control-group" data-tooltip="Smoothing Speed: Animation transition duration">
+        <div className="control-icon"><Zap size={16} /></div>
         <input 
           type="range" 
           className="horizontal-slider"
@@ -92,16 +92,16 @@ const FloatingControls: React.FC<FloatingControlsProps> = ({
       <div className="control-divider" />
 
       <div className="control-group">
-        <button className={`icon-btn ${textAlign === 'left' ? 'active' : ''}`} onClick={() => setTextAlign('left')} title="Align Left"><AlignLeft size={16} /></button>
-        <button className={`icon-btn ${textAlign === 'center' ? 'active' : ''}`} onClick={() => setTextAlign('center')} title="Align Center"><AlignCenter size={16} /></button>
-        <button className={`icon-btn ${textAlign === 'right' ? 'active' : ''}`} onClick={() => setTextAlign('right')} title="Align Right"><AlignRight size={16} /></button>
-        <button className={`icon-btn ${textAlign === 'justify' ? 'active' : ''}`} onClick={() => setTextAlign('justify')} title="Justify"><AlignJustify size={16} /></button>
+        <button className={`icon-btn ${textAlign === 'left' ? 'active' : ''}`} onClick={() => setTextAlign('left')} data-tooltip="Align Left"><AlignLeft size={16} /></button>
+        <button className={`icon-btn ${textAlign === 'center' ? 'active' : ''}`} onClick={() => setTextAlign('center')} data-tooltip="Align Center"><AlignCenter size={16} /></button>
+        <button className={`icon-btn ${textAlign === 'right' ? 'active' : ''}`} onClick={() => setTextAlign('right')} data-tooltip="Align Right"><AlignRight size={16} /></button>
+        <button className={`icon-btn ${textAlign === 'justify' ? 'active' : ''}`} onClick={() => setTextAlign('justify')} data-tooltip="Justify"><AlignJustify size={16} /></button>
       </div>
 
       <div className="control-divider" />
 
-      <div className="control-group">
-        <div className="control-icon" title="Line Spacing"><MoveVertical size={16} /></div>
+      <div className="control-group" data-tooltip="Line Spacing: Vertical distance between lines">
+        <div className="control-icon"><MoveVertical size={16} /></div>
         <input 
           type="range" 
           className="horizontal-slider"

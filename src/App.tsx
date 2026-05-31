@@ -21,6 +21,20 @@ function App() {
   
   const [readingPaceWPM, setReadingPaceWPM] = useLocalStorage<number>('ulti-readingPaceWPM', 200);
 
+  // Preemptively request microphone permission on load to make Autopilot completely frictionless
+  useEffect(() => {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          // Instantly release it, browser will remember permission for later voice sync
+          stream.getTracks().forEach(t => t.stop());
+        })
+        .catch(err => {
+          console.warn("Microphone permission denied or unavailable on load:", err);
+        });
+    }
+  }, []);
+
   return (
     <div className="app-container">
       {showControls && (

@@ -149,10 +149,11 @@ const TextViewer: React.FC<TextViewerProps> = ({
   }, [autoplayActive, readingPaceWPM, structuredParagraphs, totalWordsCount, setAutoplayActive]);
 
   const lastScrollYRef = useRef<number | null>(null);
+  const targetScrollYRef = useRef<number | null>(null);
 
   // 2. Viewport Smooth Auto-Scrolling to keep active focus centered vertically
   useEffect(() => {
-    if (activeWordIndex === null || !containerRef.current || structuredParagraphs === null) return;
+    if (activeWordIndex === null || !containerRef.current || structuredParagraphs === null || !autoplayActive) return;
     
     const activeEl = containerRef.current.querySelector(`[data-global-index="${activeWordIndex}"]`) as HTMLElement;
     if (activeEl) {
@@ -161,14 +162,57 @@ const TextViewer: React.FC<TextViewerProps> = ({
       // Only trigger a new smooth scroll if we moved to a new line (offsetTop changed significantly)
       if (lastScrollYRef.current === null || Math.abs(lastScrollYRef.current - offsetTop) > 20) {
         lastScrollYRef.current = offsetTop;
-        activeEl.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-          inline: 'nearest'
-        });
+        
+        // Calculate the absolute Y position to center the line
+        const elementRect = activeEl.getBoundingClientRect();
+        const absoluteElementTop = elementRect.top + window.scrollY;
+        targetScrollYRef.current = absoluteElementTop - (window.innerHeight / 2) + (elementRect.height / 2);
       }
     }
-  }, [activeWordIndex, structuredParagraphs]);
+  }, [activeWordIndex, structuredParagraphs, autoplayActive]);
+
+  // Continuously lerp window scroll towards target for buttery smoothness
+  useEffect(() => {
+    let rafId: number;
+    let isUserScrolling = false;
+    let scrollTimeout: any;
+
+    const handleManualScroll = () => {
+       isUserScrolling = true;
+       targetScrollYRef.current = null; 
+       clearTimeout(scrollTimeout);
+       scrollTimeout = setTimeout(() => {
+         isUserScrolling = false;
+       }, 500);
+    };
+
+    window.addEventListener('wheel', handleManualScroll, { passive: true });
+    window.addEventListener('touchmove', handleManualScroll, { passive: true });
+
+    const tick = () => {
+      if (!isUserScrolling && targetScrollYRef.current !== null) {
+        const currentY = window.scrollY;
+        const diff = targetScrollYRef.current - currentY;
+        
+        if (Math.abs(diff) > 0.5) {
+          // Lerp factor 0.08 creates a smooth cinematic pan
+          window.scrollTo(0, currentY + diff * 0.08);
+        } else {
+          window.scrollTo(0, targetScrollYRef.current);
+          targetScrollYRef.current = null;
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('wheel', handleManualScroll);
+      window.removeEventListener('touchmove', handleManualScroll);
+    };
+  }, []);
 
   // 3. Voice Synchronization Sensor integration
   useVoiceSync({
@@ -210,7 +254,11 @@ const TextViewer: React.FC<TextViewerProps> = ({
 
   // Final Render Pass (Visible, Locked Lines)
   return (
-    <div className="text-viewer" ref={containerRef}>
+    <div 
+      className="text-viewer" 
+      ref={containerRef}
+      onDoubleClick={() => setAutoplayActive(!autoplayActive)}
+    >
       <div className="reader-container">
         {structuredParagraphs.map((paragraph) => (
           <div key={paragraph.id} className="reader-paragraph">
@@ -237,7 +285,7 @@ const TextViewer: React.FC<TextViewerProps> = ({
                 const baselineOpacity = 1 - fadeAmplitude;
                 let scale = 1;
                 let opacity = baselineOpacity;
-                let fontWeight: number | string = 400;
+                let textStroke = 0;
 
                 if (activeWordIndex !== null) {
                   const distance = Math.abs(word.globalIndex - activeWordIndex);
@@ -245,12 +293,12 @@ const TextViewer: React.FC<TextViewerProps> = ({
                   if (distance === 0) {
                     scale = 1 + (0.7 * scaleAmplitude);
                     opacity = 1;
-                    fontWeight = 700;
+                    textStroke = 0.65;
                   } else if (distance <= focusRadius) {
                     const ratio = 1 - (distance / (focusRadius + 1));
                     scale = 1 + (0.7 * scaleAmplitude * ratio);
                     opacity = baselineOpacity + ((1 - baselineOpacity) * ratio);
-                    fontWeight = ratio > 0.5 ? 600 : 500;
+                    textStroke = 0.65 * ratio;
                   }
                 }
 
@@ -258,7 +306,7 @@ const TextViewer: React.FC<TextViewerProps> = ({
                   word,
                   scale,
                   opacity,
-                  fontWeight,
+                  textStroke,
                   baseStyle
                 };
               });
@@ -307,7 +355,7 @@ const TextViewer: React.FC<TextViewerProps> = ({
                     const style = {
                       ...item.baseStyle,
                       opacity: item.opacity,
-                      fontWeight: item.fontWeight,
+                      WebkitTextStroke: `${item.textStroke}px currentColor`,
                       transform: `translateX(${shift}px) scale(${item.scale})`
                     };
 
