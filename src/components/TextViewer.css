@@ -1,0 +1,35 @@
+.text-viewer {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.reader-container {
+  font-family: var(--font-reading);
+  font-size: 1rem; 
+  color: var(--text-primary);
+}
+
+.reader-paragraph {
+  margin-bottom: 2.5rem;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 0.25em; /* Matches the natural width of a space character exactly */
+  white-space: nowrap; /* Forces line locking */
+}
+
+.word {
+  opacity: 0.2;
+  font-size: 1rem;
+  transition-property: font-size, opacity, font-weight, color;
+  transition-timing-function: ease-in-out; 
+  cursor: default;
+  will-change: font-size, opacity, font-weight;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transform: translateZ(0); /* Hardware acceleration to reduce layout jitter */
+  backface-visibility: hidden;
+}

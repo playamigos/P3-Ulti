@@ -1,0 +1,31 @@
+:root {
+  --bg-color: #ffffff; 
+  --surface-color: #f8fafc;
+  --text-primary: #0f172a;
+  --text-dimmed: #64748b;
+  --accent-color: #0284c7;
+  
+  --font-ui: 'Inter', sans-serif;
+  --font-reading: 'Lora', serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}
+
+body {
+  font-family: var(--font-ui);
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
