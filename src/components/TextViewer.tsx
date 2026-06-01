@@ -45,6 +45,16 @@ const TextViewer: React.FC<TextViewerProps> = ({
   // Visual Telemetry Debug states
   const [lastDetectedSpeechWord, setLastDetectedSpeechWord] = useState<string>('');
   
+  // Auto-hide the detected speech word after 2 seconds
+  useEffect(() => {
+    if (lastDetectedSpeechWord) {
+      const timer = setTimeout(() => {
+        setLastDetectedSpeechWord('');
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [lastDetectedSpeechWord]);
+
   const parsedParagraphs = useMemo(() => parseTextToWords(text), [text]);
 
   // Handle window resize by forcing a re-measure

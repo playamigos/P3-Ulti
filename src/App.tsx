@@ -4,6 +4,7 @@ import './App.css';
 import TextViewer from './components/TextViewer';
 import FloatingControls from './components/FloatingControls';
 import AutopilotControls from './components/AutopilotControls';
+import OnboardingModal from './components/OnboardingModal';
 import { sampleText } from './data/sampleText';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
@@ -31,19 +32,7 @@ function App() {
   const [confidenceThreshold, setConfidenceThreshold] = useLocalStorage<number>('ulti-confidenceThreshold', 0.7);
   const [snapPhraseLength, setSnapPhraseLength] = useLocalStorage<number>('ulti-snapPhraseLength', 5);
 
-  // Preemptively request microphone permission on load to make Autopilot completely frictionless
-  useEffect(() => {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          // Instantly release it, browser will remember permission for later voice sync
-          stream.getTracks().forEach(t => t.stop());
-        })
-        .catch(err => {
-          console.warn("Microphone permission denied or unavailable on load:", err);
-        });
-    }
-  }, []);
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useLocalStorage<boolean>('ulti-hasSeenOnboarding', false);
 
   // Click outside to close menus
   useEffect(() => {
@@ -65,6 +54,10 @@ function App() {
 
   return (
     <div className="app-container">
+      {!hasSeenOnboarding && (
+        <OnboardingModal onComplete={() => setHasSeenOnboarding(true)} />
+      )}
+
       {showControls && (
         <FloatingControls 
           focusRadius={focusRadius} 
