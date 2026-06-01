@@ -8,6 +8,10 @@ interface UseVoiceSyncProps {
   setReadingPaceWPM: (wpm: number) => void;
   structuredParagraphs: { id: string, lines: any[][] }[] | null;
   onSpeechDetected: (phrase: string) => void;
+  speechOffset: number;
+  smoothingWindow: number;
+  jumpThreshold: number;
+  confidenceThreshold: number;
 }
 
 export const useVoiceSync = ({
@@ -17,10 +21,15 @@ export const useVoiceSync = ({
   readingPaceWPM,
   setReadingPaceWPM,
   structuredParagraphs,
-  onSpeechDetected
+  onSpeechDetected,
+  speechOffset,
+  smoothingWindow,
+  jumpThreshold,
+  confidenceThreshold
 }: UseVoiceSyncProps) => {
   const recognitionRef = useRef<any>(null);
   const lastMatchRef = useRef<{ index: number; time: number } | null>(null);
+  const wpmHistoryRef = useRef<number[]>([]);
 
   // Flattened list of all words in order
   const allWords = useMemo(() => {
@@ -36,6 +45,10 @@ export const useVoiceSync = ({
   const setReadingPaceWPMRef = useRef(setReadingPaceWPM);
   const onSpeechDetectedRef = useRef(onSpeechDetected);
   const allWordsRef = useRef(allWords);
+  const speechOffsetRef = useRef(speechOffset);
+  const smoothingWindowRef = useRef(smoothingWindow);
+  const jumpThresholdRef = useRef(jumpThreshold);
+  const confidenceThresholdRef = useRef(confidenceThreshold);
 
   useEffect(() => { activeWordIndexRef.current = activeWordIndex; }, [activeWordIndex]);
   useEffect(() => { readingPaceWPMRef.current = readingPaceWPM; }, [readingPaceWPM]);
@@ -43,6 +56,10 @@ export const useVoiceSync = ({
   useEffect(() => { setReadingPaceWPMRef.current = setReadingPaceWPM; }, [setReadingPaceWPM]);
   useEffect(() => { onSpeechDetectedRef.current = onSpeechDetected; }, [onSpeechDetected]);
   useEffect(() => { allWordsRef.current = allWords; }, [allWords]);
+  useEffect(() => { speechOffsetRef.current = speechOffset; }, [speechOffset]);
+  useEffect(() => { smoothingWindowRef.current = smoothingWindow; }, [smoothingWindow]);
+  useEffect(() => { jumpThresholdRef.current = jumpThreshold; }, [jumpThreshold]);
+  useEffect(() => { confidenceThresholdRef.current = confidenceThreshold; }, [confidenceThreshold]);
 
   useEffect(() => {
     if (!active) {
@@ -55,6 +72,7 @@ export const useVoiceSync = ({
         recognitionRef.current = null;
       }
       lastMatchRef.current = null;
+      wpmHistoryRef.current = [];
       return;
     }
 
@@ -75,6 +93,7 @@ export const useVoiceSync = ({
       if (!latestResult) return;
 
       const transcript = latestResult[0].transcript.toLowerCase();
+      const confidence = latestResult[0].confidence || 1.0;
       
       // Clean spoken words
       const spokenWords = transcript.trim().split(/\s+/).map((w: string) => 
@@ -89,6 +108,7 @@ export const useVoiceSync = ({
       
       let bestMatchGlobalIndex: number | null = null;
       let bestMatchText: string = '';
+      let bestMatchPhraseLen = 0;
       
       const maxPhraseLength = Math.min(5, spokenLength);
       
@@ -102,7 +122,11 @@ export const useVoiceSync = ({
          if (phraseLen === 1) {
             // For single words, restrict to a tight forward window to prevent random jumps
             searchStart = currentActiveIdx;
-            searchEnd = Math.min(searchAllWords.length, currentActiveIdx + 25);
+            searchEnd = Math.min(searchAllWords.length, currentActiveIdx + 5);
+         } else if (phraseLen === 2) {
+            // For two words, moderate window
+            searchStart = Math.max(0, currentActiveIdx - 20);
+            searchEnd = Math.min(searchAllWords.length, currentActiveIdx + 50);
          }
          
          let closestMatchIdx = -1;
@@ -111,6 +135,10 @@ export const useVoiceSync = ({
          for (let i = searchStart; i <= searchEnd - phraseLen; i++) {
             let match = true;
             for (let j = 0; j < phraseLen; j++) {
+               if (!searchAllWords[i + j]) {
+                  match = false;
+                  break;
+               }
                const textWord = searchAllWords[i + j].text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()?]/g, "").trim();
                if (textWord !== targetPhrase[j]) {
                   match = false;
@@ -128,8 +156,21 @@ export const useVoiceSync = ({
          }
          
          if (closestMatchIdx !== -1) {
+            const distance = minDistance;
+            const isSharpJump = distance > jumpThresholdRef.current;
+            
+            // Audio detection should not make sharp jump without good probability and phrase match
+            if (isSharpJump) {
+               if (phraseLen < 2) continue; // No sharp jumps on single words
+               if (confidence < confidenceThresholdRef.current && phraseLen < 3) continue; // Require good confidence or longer phrase for jumps
+            }
+            
+            // If confidence is really low, reject short phrases
+            if (confidence < 0.5 && phraseLen < 2) continue;
+
             bestMatchGlobalIndex = searchAllWords[closestMatchIdx + phraseLen - 1].globalIndex;
             bestMatchText = searchAllWords[closestMatchIdx + phraseLen - 1].text;
+            bestMatchPhraseLen = phraseLen;
             break; // Found the longest possible match
          }
       }
@@ -137,25 +178,59 @@ export const useVoiceSync = ({
       // If we found a valid match and it is a progression or jump, update position and WPM
       if (bestMatchGlobalIndex !== null && bestMatchGlobalIndex !== currentActiveIdx) {
         const now = performance.now();
-        setActiveWordIndexRef.current(bestMatchGlobalIndex);
-        onSpeechDetectedRef.current(bestMatchText); // Report matched word text back to visual HUD
+        
+        // Add the forward offset to compensate for API detection delay
+        const maxIndex = searchAllWords.length > 0 ? searchAllWords[searchAllWords.length - 1].globalIndex : currentActiveIdx;
+        const targetGlobalIndex = Math.min(maxIndex, bestMatchGlobalIndex + speechOffsetRef.current);
+
+        const deltaFromCurrent = targetGlobalIndex - currentActiveIdx;
+        
+        // Prevent oscillation: do not snap visual position if the match is close.
+        // If user is slightly ahead (<= 5 words), let the pace increase naturally catch up.
+        // If user is somewhat behind (>= -15 words), it's usually Speech API lag, avoid jarring backward jumps.
+        const isSmallForward = deltaFromCurrent > 0 && deltaFromCurrent <= 5;
+        const isBackwardLag = deltaFromCurrent < 0 && deltaFromCurrent >= -15;
+        
+        if (!isSmallForward && !isBackwardLag) {
+           setActiveWordIndexRef.current(targetGlobalIndex);
+        }
+        
+        onSpeechDetectedRef.current(bestMatchText); // Always report matched word text back to visual HUD
 
         if (lastMatchRef.current) {
-          const deltaWords = bestMatchGlobalIndex - lastMatchRef.current.index;
+          const deltaWords = targetGlobalIndex - lastMatchRef.current.index;
           const deltaTimeSec = (now - lastMatchRef.current.time) / 1000;
 
           // Check speed limits to avoid noise spikes. Allow backward jumps without affecting WPM negatively.
-          if (deltaWords > 0 && deltaWords < 50 && deltaTimeSec > 0.2 && deltaTimeSec < 8) {
+          // Update pace only based on phrase matches to ensure accuracy.
+          if (bestMatchPhraseLen >= 2 && deltaWords > 0 && deltaWords < 50 && deltaTimeSec > 0.2 && deltaTimeSec < 8) {
             const instantWPM = (deltaWords / deltaTimeSec) * 60;
             const currentPaceWPM = readingPaceWPMRef.current;
             if (instantWPM >= 80 && instantWPM <= 450) {
-              const newWPM = Math.round(currentPaceWPM * 0.8 + instantWPM * 0.2);
+              
+              if (wpmHistoryRef.current.length === 0) {
+                 wpmHistoryRef.current = Array(5).fill(currentPaceWPM);
+               }
+              
+              wpmHistoryRef.current.push(instantWPM);
+              if (wpmHistoryRef.current.length > smoothingWindowRef.current) {
+                 wpmHistoryRef.current.shift();
+              }
+              
+              const averageWPM = wpmHistoryRef.current.reduce((a, b) => a + b, 0) / wpmHistoryRef.current.length;
+              let newWPM = Math.round(averageWPM);
+              
+              // If user is ahead, increase pace slightly more aggressively to match them
+              if (deltaFromCurrent > 0 && instantWPM > currentPaceWPM) {
+                 newWPM = Math.round(averageWPM * 0.7 + instantWPM * 0.3);
+              }
+              
               setReadingPaceWPMRef.current(newWPM);
             }
           }
         }
 
-        lastMatchRef.current = { index: bestMatchGlobalIndex, time: now };
+        lastMatchRef.current = { index: targetGlobalIndex, time: now };
       }
     };
 

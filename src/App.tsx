@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Play, Settings2 } from 'lucide-react';
+import { Play, Settings2, Sliders } from 'lucide-react';
 import './App.css';
 import TextViewer from './components/TextViewer';
 import FloatingControls from './components/FloatingControls';
+import AutopilotControls from './components/AutopilotControls';
 import { sampleText } from './data/sampleText';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
@@ -19,8 +20,15 @@ function App() {
   // Single Autopilot state triggers autoplay and speech recognition concurrently
   const [autopilotActive, setAutopilotActive] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(false);
+  const [showAutopilotControls, setShowAutopilotControls] = useState<boolean>(false);
   
   const [readingPaceWPM, setReadingPaceWPM] = useLocalStorage<number>('ulti-readingPaceWPM', 200);
+
+  // New Autopilot Tuning Params
+  const [speechOffset, setSpeechOffset] = useLocalStorage<number>('ulti-speechOffset', 2);
+  const [smoothingWindow, setSmoothingWindow] = useLocalStorage<number>('ulti-smoothingWindow', 8);
+  const [jumpThreshold, setJumpThreshold] = useLocalStorage<number>('ulti-jumpThreshold', 10);
+  const [confidenceThreshold, setConfidenceThreshold] = useLocalStorage<number>('ulti-confidenceThreshold', 0.7);
 
   // Preemptively request microphone permission on load to make Autopilot completely frictionless
   useEffect(() => {
@@ -35,6 +43,24 @@ function App() {
         });
     }
   }, []);
+
+  // Click outside to close menus
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.floating-controls') && !target.closest('.app-header')) {
+        setShowControls(false);
+        setShowAutopilotControls(false);
+      }
+    };
+    
+    if (showControls || showAutopilotControls) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showControls, showAutopilotControls]);
 
   return (
     <div className="app-container">
@@ -56,6 +82,19 @@ function App() {
           setScrollSpeed={setScrollSpeed}
         />
       )}
+
+      {showAutopilotControls && (
+        <AutopilotControls
+          speechOffset={speechOffset}
+          setSpeechOffset={setSpeechOffset}
+          smoothingWindow={smoothingWindow}
+          setSmoothingWindow={setSmoothingWindow}
+          jumpThreshold={jumpThreshold}
+          setJumpThreshold={setJumpThreshold}
+          confidenceThreshold={confidenceThreshold}
+          setConfidenceThreshold={setConfidenceThreshold}
+        />
+      )}
       
       <div className="main-content">
         <header className="app-header">
@@ -69,8 +108,22 @@ function App() {
               <Play size={15} fill={autopilotActive ? "currentColor" : "none"} /> {autopilotActive ? 'Autopilot On' : 'Autopilot'}
             </button>
             <button 
+              className={`sensor-btn controls-btn ${showAutopilotControls ? 'active' : ''}`} 
+              style={{ padding: '0.5rem 0.6rem', marginLeft: '-0.25rem' }}
+              onClick={() => {
+                setShowAutopilotControls(!showAutopilotControls);
+                if (!showAutopilotControls) setShowControls(false);
+              }}
+              title="Autopilot Settings"
+            >
+              <Sliders size={16} />
+            </button>
+            <button 
               className={`sensor-btn controls-btn ${showControls ? 'active' : ''}`} 
-              onClick={() => setShowControls(!showControls)}
+              onClick={() => {
+                setShowControls(!showControls);
+                if (!showControls) setShowAutopilotControls(false);
+              }}
               title="Toggle Formatting Controls"
             >
               <Settings2 size={15} /> Controls
@@ -95,6 +148,10 @@ function App() {
             voiceSyncActive={autopilotActive}
             readingPaceWPM={readingPaceWPM}
             setReadingPaceWPM={setReadingPaceWPM}
+            speechOffset={speechOffset}
+            smoothingWindow={smoothingWindow}
+            jumpThreshold={jumpThreshold}
+            confidenceThreshold={confidenceThreshold}
           />
         </main>
       </div>

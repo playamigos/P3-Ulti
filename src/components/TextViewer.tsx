@@ -19,6 +19,12 @@ interface TextViewerProps {
   voiceSyncActive: boolean;
   readingPaceWPM: number;
   setReadingPaceWPM: (wpm: number) => void;
+
+  // Autopilot Engine Params
+  speechOffset: number;
+  smoothingWindow: number;
+  jumpThreshold: number;
+  confidenceThreshold: number;
 }
 
 interface MeasuredWord extends ParsedWord {
@@ -27,7 +33,8 @@ interface MeasuredWord extends ParsedWord {
 
 const TextViewer: React.FC<TextViewerProps> = ({ 
   text, focusRadius, transitionSpeed, scaleAmplitude, fadeAmplitude, textAlign, lineSpacing, scrollSpeed,
-  autoplayActive, setAutoplayActive, voiceSyncActive, readingPaceWPM, setReadingPaceWPM
+  autoplayActive, setAutoplayActive, voiceSyncActive, readingPaceWPM, setReadingPaceWPM,
+  speechOffset, smoothingWindow, jumpThreshold, confidenceThreshold
 }) => {
   const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
   const [structuredParagraphs, setStructuredParagraphs] = useState<{ id: string, lines: MeasuredWord[][] }[] | null>(null);
@@ -233,7 +240,11 @@ const TextViewer: React.FC<TextViewerProps> = ({
     readingPaceWPM,
     setReadingPaceWPM,
     structuredParagraphs,
-    onSpeechDetected: setLastDetectedSpeechWord
+    onSpeechDetected: setLastDetectedSpeechWord,
+    speechOffset,
+    smoothingWindow,
+    jumpThreshold,
+    confidenceThreshold
   });
 
   // Reset telemetry stats if Autopilot is toggled off
