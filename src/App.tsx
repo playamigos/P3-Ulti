@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Play, Settings2, Sliders } from 'lucide-react';
+import { Play, Settings2, Sliders, Plus, Minus } from 'lucide-react';
 import './App.css';
 import TextViewer from './components/TextViewer';
 import FloatingControls from './components/FloatingControls';
@@ -29,6 +29,7 @@ function App() {
   const [smoothingWindow, setSmoothingWindow] = useLocalStorage<number>('ulti-smoothingWindow', 8);
   const [jumpThreshold, setJumpThreshold] = useLocalStorage<number>('ulti-jumpThreshold', 10);
   const [confidenceThreshold, setConfidenceThreshold] = useLocalStorage<number>('ulti-confidenceThreshold', 0.7);
+  const [snapPhraseLength, setSnapPhraseLength] = useLocalStorage<number>('ulti-snapPhraseLength', 5);
 
   // Preemptively request microphone permission on load to make Autopilot completely frictionless
   useEffect(() => {
@@ -93,6 +94,8 @@ function App() {
           setJumpThreshold={setJumpThreshold}
           confidenceThreshold={confidenceThreshold}
           setConfidenceThreshold={setConfidenceThreshold}
+          snapPhraseLength={snapPhraseLength}
+          setSnapPhraseLength={setSnapPhraseLength}
         />
       )}
       
@@ -128,6 +131,16 @@ function App() {
             >
               <Settings2 size={15} /> Controls
             </button>
+
+            <div className="wpm-control" title="Adjust Reading Pace (WPM)">
+              <button className="wpm-btn" onClick={() => setReadingPaceWPM(Math.max(50, readingPaceWPM - 5))}>
+                <Minus size={12} />
+              </button>
+              <span className="wpm-display">{readingPaceWPM} WPM</span>
+              <button className="wpm-btn" onClick={() => setReadingPaceWPM(Math.min(500, readingPaceWPM + 5))}>
+                <Plus size={12} />
+              </button>
+            </div>
           </div>
         </header>
         
@@ -152,6 +165,7 @@ function App() {
             smoothingWindow={smoothingWindow}
             jumpThreshold={jumpThreshold}
             confidenceThreshold={confidenceThreshold}
+            snapPhraseLength={snapPhraseLength}
           />
         </main>
       </div>

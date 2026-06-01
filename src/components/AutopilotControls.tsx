@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic, Activity, FastForward, ShieldCheck } from 'lucide-react';
+import { Mic, Activity, FastForward, ShieldCheck, Ruler } from 'lucide-react';
 import './FloatingControls.css';
 
 interface AutopilotControlsProps {
@@ -11,13 +11,16 @@ interface AutopilotControlsProps {
   setJumpThreshold: (v: number) => void;
   confidenceThreshold: number;
   setConfidenceThreshold: (v: number) => void;
+  snapPhraseLength: number;
+  setSnapPhraseLength: (v: number) => void;
 }
 
 const AutopilotControls: React.FC<AutopilotControlsProps> = ({
   speechOffset, setSpeechOffset,
   smoothingWindow, setSmoothingWindow,
   jumpThreshold, setJumpThreshold,
-  confidenceThreshold, setConfidenceThreshold
+  confidenceThreshold, setConfidenceThreshold,
+  snapPhraseLength, setSnapPhraseLength
 }) => {
   return (
     <div className="floating-controls autopilot-controls">
@@ -65,6 +68,18 @@ const AutopilotControls: React.FC<AutopilotControlsProps> = ({
           value={confidenceThreshold} onChange={(e) => setConfidenceThreshold(Number(e.target.value))}
         />
         <div className="control-value">{confidenceThreshold.toFixed(1)}</div>
+      </div>
+
+      <div className="control-divider" />
+
+      <div className="control-group" data-tooltip="Snap Phrase: Required matching words to allow a hard jump">
+        <div className="control-icon"><Ruler size={16} /></div>
+        <input 
+          type="range" className="horizontal-slider"
+          min="1" max="10" step="1"
+          value={snapPhraseLength} onChange={(e) => setSnapPhraseLength(Number(e.target.value))}
+        />
+        <div className="control-value">{snapPhraseLength}</div>
       </div>
     </div>
   );

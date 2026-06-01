@@ -25,6 +25,7 @@ interface TextViewerProps {
   smoothingWindow: number;
   jumpThreshold: number;
   confidenceThreshold: number;
+  snapPhraseLength: number;
 }
 
 interface MeasuredWord extends ParsedWord {
@@ -34,11 +35,12 @@ interface MeasuredWord extends ParsedWord {
 const TextViewer: React.FC<TextViewerProps> = ({ 
   text, focusRadius, transitionSpeed, scaleAmplitude, fadeAmplitude, textAlign, lineSpacing, scrollSpeed,
   autoplayActive, setAutoplayActive, voiceSyncActive, readingPaceWPM, setReadingPaceWPM,
-  speechOffset, smoothingWindow, jumpThreshold, confidenceThreshold
+  speechOffset, smoothingWindow, jumpThreshold, confidenceThreshold, snapPhraseLength
 }) => {
   const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
   const [structuredParagraphs, setStructuredParagraphs] = useState<{ id: string, lines: MeasuredWord[][] }[] | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const lastTapRef = useRef<number>(0);
 
   // Visual Telemetry Debug states
   const [lastDetectedSpeechWord, setLastDetectedSpeechWord] = useState<string>('');
@@ -109,6 +111,12 @@ const TextViewer: React.FC<TextViewerProps> = ({
     return count;
   }, [structuredParagraphs]);
 
+  // Keep a stable ref for readingPaceWPM so updating it doesn't restart the tick loop
+  const readingPaceWPMRef = useRef(readingPaceWPM);
+  useEffect(() => {
+    readingPaceWPMRef.current = readingPaceWPM;
+  }, [readingPaceWPM]);
+
   // 1. Baseline Auto-Advance Autoplay Engine (rAF-based for perfect timing, without drift)
   const autoplayRef = useRef<{ lastTime: number; accumulated: number } | null>(null);
 
@@ -129,7 +137,7 @@ const TextViewer: React.FC<TextViewerProps> = ({
       autoplayRef.current.lastTime = now;
       autoplayRef.current.accumulated += delta;
 
-      const intervalMs = (60 / readingPaceWPM) * 1000;
+      const intervalMs = (60 / readingPaceWPMRef.current) * 1000;
 
       if (autoplayRef.current.accumulated >= intervalMs) {
         // Only deduct intervalMs once per tick, if it lagged multiple intervals we just snap
@@ -139,7 +147,7 @@ const TextViewer: React.FC<TextViewerProps> = ({
           if (prev === null) return 0;
           if (prev >= totalWordsCount - 1) {
             setAutoplayActive(false);
-            return prev;
+            return 0;
           }
           return prev + 1;
         });
@@ -154,7 +162,7 @@ const TextViewer: React.FC<TextViewerProps> = ({
       cancelAnimationFrame(rafId);
       autoplayRef.current = null;
     };
-  }, [autoplayActive, readingPaceWPM, structuredParagraphs, totalWordsCount, setAutoplayActive]);
+  }, [autoplayActive, structuredParagraphs, totalWordsCount, setAutoplayActive]);
 
   const lastScrollYRef = useRef<number | null>(null);
   const targetScrollYRef = useRef<number | null>(null);
@@ -244,7 +252,8 @@ const TextViewer: React.FC<TextViewerProps> = ({
     speechOffset,
     smoothingWindow,
     jumpThreshold,
-    confidenceThreshold
+    confidenceThreshold,
+    snapPhraseLength
   });
 
   // Reset telemetry stats if Autopilot is toggled off
@@ -279,7 +288,18 @@ const TextViewer: React.FC<TextViewerProps> = ({
     <div 
       className="text-viewer" 
       ref={containerRef}
-      onDoubleClick={() => setAutoplayActive(!autoplayActive)}
+      onPointerDown={(e) => {
+        // Prevent double tap from interfering with potential interactive children
+        // if we ever add links, but for now we just want robust double-tap.
+        const now = performance.now();
+        if (now - lastTapRef.current < 350) { // 350ms window for double tap
+          setAutoplayActive(!autoplayActive);
+          lastTapRef.current = 0; // reset
+          e.preventDefault(); // Prevent accidental zoom on some browsers
+        } else {
+          lastTapRef.current = now;
+        }
+      }}
     >
       <div className="reader-container">
         {structuredParagraphs.map((paragraph) => (
@@ -399,18 +419,12 @@ const TextViewer: React.FC<TextViewerProps> = ({
         ))}
       </div>
 
-      {/* Minimal WPM HUD Overlay */}
-      {autoplayActive && (
+      {/* Minimal Word Detected HUD Overlay */}
+      {autoplayActive && lastDetectedSpeechWord && (
         <div className="telemetry-debug-hud">
-          {lastDetectedSpeechWord && (
-             <div className="telemetry-hud-group">
-               <span className="telemetry-label">Heard:</span>
-               <span className="telemetry-value speech-match">"{lastDetectedSpeechWord}"</span>
-             </div>
-          )}
           <div className="telemetry-hud-group">
-            <span className="telemetry-label">Speed:</span>
-            <span className="telemetry-value speed-highlight">{readingPaceWPM} WPM</span>
+            <span className="telemetry-label">Heard:</span>
+            <span className="telemetry-value speech-match">"{lastDetectedSpeechWord}"</span>
           </div>
         </div>
       )}

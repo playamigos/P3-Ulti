@@ -12,6 +12,7 @@ interface UseVoiceSyncProps {
   smoothingWindow: number;
   jumpThreshold: number;
   confidenceThreshold: number;
+  snapPhraseLength: number;
 }
 
 export const useVoiceSync = ({
@@ -25,7 +26,8 @@ export const useVoiceSync = ({
   speechOffset,
   smoothingWindow,
   jumpThreshold,
-  confidenceThreshold
+  confidenceThreshold,
+  snapPhraseLength
 }: UseVoiceSyncProps) => {
   const recognitionRef = useRef<any>(null);
   const lastMatchRef = useRef<{ index: number; time: number } | null>(null);
@@ -49,6 +51,7 @@ export const useVoiceSync = ({
   const smoothingWindowRef = useRef(smoothingWindow);
   const jumpThresholdRef = useRef(jumpThreshold);
   const confidenceThresholdRef = useRef(confidenceThreshold);
+  const snapPhraseLengthRef = useRef(snapPhraseLength);
 
   useEffect(() => { activeWordIndexRef.current = activeWordIndex; }, [activeWordIndex]);
   useEffect(() => { readingPaceWPMRef.current = readingPaceWPM; }, [readingPaceWPM]);
@@ -60,6 +63,7 @@ export const useVoiceSync = ({
   useEffect(() => { smoothingWindowRef.current = smoothingWindow; }, [smoothingWindow]);
   useEffect(() => { jumpThresholdRef.current = jumpThreshold; }, [jumpThreshold]);
   useEffect(() => { confidenceThresholdRef.current = confidenceThreshold; }, [confidenceThreshold]);
+  useEffect(() => { snapPhraseLengthRef.current = snapPhraseLength; }, [snapPhraseLength]);
 
   useEffect(() => {
     if (!active) {
@@ -110,7 +114,7 @@ export const useVoiceSync = ({
       let bestMatchText: string = '';
       let bestMatchPhraseLen = 0;
       
-      const maxPhraseLength = Math.min(5, spokenLength);
+      const maxPhraseLength = Math.min(10, spokenLength); // Allow scanning up to 10 words
       
       for (let phraseLen = maxPhraseLength; phraseLen >= 1; phraseLen--) {
          const targetPhrase = spokenWords.slice(-phraseLen);
@@ -161,8 +165,8 @@ export const useVoiceSync = ({
             
             // Audio detection should not make sharp jump without good probability and phrase match
             if (isSharpJump) {
-               if (phraseLen < 2) continue; // No sharp jumps on single words
-               if (confidence < confidenceThresholdRef.current && phraseLen < 3) continue; // Require good confidence or longer phrase for jumps
+               if (phraseLen < snapPhraseLengthRef.current) continue; // Require minimum phrase length to jump
+               if (confidence < confidenceThresholdRef.current && phraseLen < snapPhraseLengthRef.current + 2) continue; // Require good confidence or even longer phrase for jumps
             }
             
             // If confidence is really low, reject short phrases
@@ -186,10 +190,10 @@ export const useVoiceSync = ({
         const deltaFromCurrent = targetGlobalIndex - currentActiveIdx;
         
         // Prevent oscillation: do not snap visual position if the match is close.
-        // If user is slightly ahead (<= 5 words), let the pace increase naturally catch up.
-        // If user is somewhat behind (>= -15 words), it's usually Speech API lag, avoid jarring backward jumps.
-        const isSmallForward = deltaFromCurrent > 0 && deltaFromCurrent <= 5;
-        const isBackwardLag = deltaFromCurrent < 0 && deltaFromCurrent >= -15;
+        // Use the Jump Threshold to define the forward "no-snap" zone.
+        // For backward lag, use a much larger buffer because the API frequently delays results by several seconds.
+        const isSmallForward = deltaFromCurrent >= 0 && deltaFromCurrent <= jumpThresholdRef.current;
+        const isBackwardLag = deltaFromCurrent < 0 && Math.abs(deltaFromCurrent) <= Math.max(30, jumpThresholdRef.current * 3);
         
         if (!isSmallForward && !isBackwardLag) {
            setActiveWordIndexRef.current(targetGlobalIndex);
