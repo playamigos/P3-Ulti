@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Loader2 } from 'lucide-react';
+import * as tts from '@mintplex-labs/piper-tts-web';
 import './TextViewer.css';
 import { parseTextToWords, type ParsedWord } from '../utils/textParser';
 import { useVoiceSync } from '../hooks/useVoiceSync';
@@ -26,6 +28,11 @@ interface TextViewerProps {
   jumpThreshold: number;
   confidenceThreshold: number;
   snapPhraseLength: number;
+
+  // Speak Out Mode
+  speakOutActive: boolean;
+  setSpeakOutActive: (active: boolean) => void;
+  selectedVoiceName: string;
 }
 
 interface MeasuredWord extends ParsedWord {
@@ -35,10 +42,12 @@ interface MeasuredWord extends ParsedWord {
 const TextViewer: React.FC<TextViewerProps> = ({ 
   text, focusRadius, transitionSpeed, scaleAmplitude, fadeAmplitude, textAlign, lineSpacing, scrollSpeed,
   autoplayActive, setAutoplayActive, voiceSyncActive, readingPaceWPM, setReadingPaceWPM,
-  speechOffset, smoothingWindow, jumpThreshold, confidenceThreshold, snapPhraseLength
+  speechOffset, smoothingWindow, jumpThreshold, confidenceThreshold, snapPhraseLength,
+  speakOutActive, setSpeakOutActive, selectedVoiceName
 }) => {
   const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null);
   const [structuredParagraphs, setStructuredParagraphs] = useState<{ id: string, lines: MeasuredWord[][] }[] | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastTapRef = useRef<number>(0);
 
@@ -79,6 +88,12 @@ const TextViewer: React.FC<TextViewerProps> = ({
       window.removeEventListener('resize', handleResize);
     };
   }, []);
+
+  // Reset layout measurements and reading pointer when text or chapter changes
+  useEffect(() => {
+    setStructuredParagraphs(null);
+    setActiveWordIndex(0);
+  }, [text]);
 
   // Measurement effect
   useEffect(() => {
@@ -147,7 +162,7 @@ const TextViewer: React.FC<TextViewerProps> = ({
   const autoplayRef = useRef<{ lastTime: number; accumulated: number } | null>(null);
 
   useEffect(() => {
-    if (!autoplayActive || structuredParagraphs === null || totalWordsCount === 0) {
+    if (!autoplayActive || speakOutActive || structuredParagraphs === null || totalWordsCount === 0) {
       autoplayRef.current = null;
       return;
     }
@@ -188,7 +203,7 @@ const TextViewer: React.FC<TextViewerProps> = ({
       cancelAnimationFrame(rafId);
       autoplayRef.current = null;
     };
-  }, [autoplayActive, structuredParagraphs, totalWordsCount, setAutoplayActive]);
+  }, [autoplayActive, speakOutActive, structuredParagraphs, totalWordsCount, setAutoplayActive]);
 
   const lastScrollYRef = useRef<number | null>(null);
   const targetScrollYRef = useRef<number | null>(null);
@@ -289,6 +304,227 @@ const TextViewer: React.FC<TextViewerProps> = ({
     }
   }, [autoplayActive]);
 
+  // Pre-warm the TTS session in the background on mount / voice changes
+  useEffect(() => {
+    const prewarm = async () => {
+      try {
+        const voiceId = selectedVoiceName || 'en_US-hfc_female-medium';
+        const stored = await tts.stored();
+        if (stored.includes(voiceId)) {
+          // If the active instance is for a different voice, reset it so we load the new voice
+          const activeSession = (tts.TtsSession as any)._instance;
+          if (activeSession && activeSession.voiceId !== voiceId) {
+            (tts.TtsSession as any)._instance = null;
+          }
+          await tts.TtsSession.create({
+            voiceId,
+            wasmPaths: {
+              onnxWasm: window.location.origin + '/',
+              piperData: 'https://cdn.jsdelivr.net/npm/@diffusionstudio/piper-wasm@1.0.0/build/piper_phonemize.data',
+              piperWasm: 'https://cdn.jsdelivr.net/npm/@diffusionstudio/piper-wasm@1.0.0/build/piper_phonemize.wasm'
+            }
+          });
+          console.log(`[TTS Pre-warm] Preloaded voice session for ${voiceId}`);
+        }
+      } catch (e) {
+        console.error("[TTS Pre-warm] Failed to pre-warm session:", e);
+      }
+    };
+    prewarm();
+  }, [selectedVoiceName]);
+
+  // 4. Text-to-Speech (Speak Out) Integration using Piper WASM
+  const speakOutActiveRef = useRef(speakOutActive);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const currentParagraphIndexRef = useRef<number>(0);
+
+  useEffect(() => {
+    speakOutActiveRef.current = speakOutActive;
+  }, [speakOutActive]);
+
+  // Sync speed rate to reading WPM: 200 WPM = playbackRate 1.0
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = readingPaceWPM / 200;
+    }
+  }, [readingPaceWPM]);
+
+  // Sync play/pause updates between audio playback and visual autoplay
+  useEffect(() => {
+    if (!speakOutActive || !audioRef.current) return;
+    if (autoplayActive) {
+      audioRef.current.play().catch(e => console.error("Error resuming audio:", e));
+    } else {
+      audioRef.current.pause();
+    }
+  }, [autoplayActive, speakOutActive]);
+
+  useEffect(() => {
+    if (!speakOutActive) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setDownloadProgress(null);
+      return;
+    }
+
+    let active = true;
+    let localRafId: number;
+
+    // Determine starting paragraph index based on activeWordIndex
+    let pIdx = 0;
+    if (activeWordIndex !== null && parsedParagraphs) {
+      const idx = parsedParagraphs.findIndex(p => 
+        p.words.some(w => w.globalIndex === activeWordIndex)
+      );
+      if (idx !== -1) pIdx = idx;
+    }
+    currentParagraphIndexRef.current = pIdx;
+
+    const playSpeechForParagraph = async (index: number) => {
+      if (!active || !speakOutActiveRef.current || !parsedParagraphs || index >= parsedParagraphs.length) {
+        setSpeakOutActive(false);
+        return;
+      }
+
+      currentParagraphIndexRef.current = index;
+
+      try {
+        // Voice selection - default to Samantha if empty
+        const voiceId = selectedVoiceName || 'en_US-hfc_female-medium';
+
+        // Check if voice is stored offline. If not, trigger in-place download
+        const stored = await tts.stored();
+        if (!stored.includes(voiceId)) {
+          setDownloadProgress(0);
+          await tts.download(voiceId, (progress) => {
+            if (!active) return;
+            const percent = Math.round((progress.loaded / progress.total) * 100);
+            setDownloadProgress(percent);
+          });
+          setDownloadProgress(null);
+        }
+
+        if (!active || !speakOutActiveRef.current) return;
+
+        const words = parsedParagraphs[index].words;
+        const pText = words.map(w => w.text).join(' ');
+
+        // Synthesize text to WAV blob using local Piper WASM with custom same-origin assets configuration
+        const activeSession = (tts.TtsSession as any)._instance;
+        if (activeSession && activeSession.voiceId !== voiceId) {
+          (tts.TtsSession as any)._instance = null;
+        }
+        
+        const session = await tts.TtsSession.create({
+          voiceId,
+          wasmPaths: {
+            onnxWasm: window.location.origin + '/',
+            piperData: 'https://cdn.jsdelivr.net/npm/@diffusionstudio/piper-wasm@1.0.0/build/piper_phonemize.data',
+            piperWasm: 'https://cdn.jsdelivr.net/npm/@diffusionstudio/piper-wasm@1.0.0/build/piper_phonemize.wasm'
+          }
+        });
+        const wavBlob = await session.predict(pText);
+
+        if (!active || !speakOutActiveRef.current) return;
+
+        const audioUrl = URL.createObjectURL(wavBlob);
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+
+        // Apply pace speed
+        audio.playbackRate = readingPaceWPM / 200;
+
+        // Calculate length-weighted duration timings
+        let totalDuration = 0;
+        let wordTimings: { start: number; end: number; globalIndex: number }[] = [];
+
+        audio.onloadedmetadata = () => {
+          if (!active) return;
+          totalDuration = audio.duration;
+          
+          const totalChars = words.reduce((acc, w) => acc + w.text.length, 0);
+          let elapsed = 0;
+          wordTimings = words.map(w => {
+            const wordLen = w.text.length;
+            const duration = totalDuration * (wordLen / totalChars);
+            const start = elapsed;
+            const end = elapsed + duration;
+            elapsed = end;
+            return { start, end, globalIndex: w.globalIndex };
+          });
+
+          // Run highlight animation loop
+          const runHighlightLoop = () => {
+            if (!active || !audioRef.current || audio.paused) return;
+            const curTime = audio.currentTime;
+            const match = wordTimings.find(wt => curTime >= wt.start && curTime <= wt.end);
+            if (match) {
+              setActiveWordIndex(match.globalIndex);
+            }
+            localRafId = requestAnimationFrame(runHighlightLoop);
+          };
+
+          audio.onplay = () => {
+            localRafId = requestAnimationFrame(runHighlightLoop);
+          };
+
+          // Start playing if autoplay is active
+          if (autoplayActive) {
+            audio.play().catch(err => console.error("Play failed:", err));
+          }
+        };
+
+        audio.onended = () => {
+          if (!active) return;
+          cancelAnimationFrame(localRafId);
+          URL.revokeObjectURL(audioUrl);
+          
+          const nextIndex = index + 1;
+          if (nextIndex < parsedParagraphs.length) {
+            // Move highlight to the first word of the next paragraph
+            const firstWord = parsedParagraphs[nextIndex].words[0];
+            if (firstWord) {
+              setActiveWordIndex(firstWord.globalIndex);
+            }
+            setTimeout(() => {
+              if (active && speakOutActiveRef.current) {
+                playSpeechForParagraph(nextIndex);
+              }
+            }, 300);
+          } else {
+            setSpeakOutActive(false);
+          }
+        };
+
+        audio.onerror = (e) => {
+          console.error("Audio playback error:", e);
+          if (active) {
+            setSpeakOutActive(false);
+          }
+        };
+
+      } catch (err) {
+        console.error("Piper TTS synthesis failed:", err);
+        if (active) {
+          setSpeakOutActive(false);
+        }
+      }
+    };
+
+    playSpeechForParagraph(pIdx);
+
+    return () => {
+      active = false;
+      cancelAnimationFrame(localRafId);
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [speakOutActive, selectedVoiceName, parsedParagraphs]);
+
   // Measurement Render Pass (Invisible)
   if (structuredParagraphs === null) {
     return (
@@ -319,6 +555,10 @@ const TextViewer: React.FC<TextViewerProps> = ({
         // if we ever add links, but for now we just want robust double-tap.
         const now = performance.now();
         if (now - lastTapRef.current < 350) { // 350ms window for double tap
+          // Unlock audio stream synchronously during the user click/tap gesture
+          const silent = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA');
+          silent.play().catch(() => {});
+
           setAutoplayActive(!autoplayActive);
           lastTapRef.current = 0; // reset
           e.preventDefault(); // Prevent accidental zoom on some browsers
@@ -451,6 +691,21 @@ const TextViewer: React.FC<TextViewerProps> = ({
           <div className="telemetry-hud-group">
             <span className="telemetry-label">Heard:</span>
             <span className="telemetry-value speech-match">"{lastDetectedSpeechWord}"</span>
+          </div>
+        </div>
+      )}
+
+      {/* In-place download overlay */}
+      {downloadProgress !== null && (
+        <div className="voice-download-overlay">
+          <div className="voice-download-modal">
+            <Loader2 className="animate-spin text-indigo" size={32} />
+            <h3 className="download-title">Downloading Premium Voice</h3>
+            <p className="download-subtitle">Caching voice assets offline. This will take a moment...</p>
+            <div className="download-progress-bar">
+              <div className="download-progress-fill" style={{ width: `${downloadProgress}%` }} />
+            </div>
+            <span className="download-percentage">{downloadProgress}%</span>
           </div>
         </div>
       )}

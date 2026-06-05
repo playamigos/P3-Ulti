@@ -194,3 +194,97 @@
     box-shadow: 0 4px 22px rgba(99, 102, 241, 0.55);
   }
 }
+
+/* ─── Mobile and Tablet Responsive Styles ─── */
+@media (max-width: 768px) {
+  .floating-controls {
+    position: fixed;
+    top: auto;
+    bottom: 1.5rem;
+    left: 1rem;
+    right: 1rem;
+    transform: none;
+    width: auto;
+    max-width: none;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 1.25rem 1.5rem;
+    gap: 0.75rem;
+    border-radius: 24px;
+    max-height: 50vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  }
+
+  .floating-controls:hover {
+    transform: none;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  }
+
+  .control-group {
+    width: 100%;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  /* Center the alignment options on mobile */
+  .control-group:has(.icon-btn) {
+    justify-content: center;
+    gap: 1.5rem;
+    width: 100%;
+    padding: 0.2rem 0;
+  }
+
+  .control-divider {
+    width: 100%;
+    height: 1px;
+    background-color: rgba(0, 0, 0, 0.08);
+    margin: 0.2rem 0;
+  }
+
+  .horizontal-slider {
+    flex-grow: 1;
+    width: auto;
+    max-width: 65%;
+    height: 6px; /* Slightly thicker for better touch target metrics */
+  }
+
+  .control-value {
+    min-width: 32px;
+  }
+
+  /* Disable hover tooltips on touch viewports so they don't get stuck */
+  .control-group[data-tooltip]::after,
+  .icon-btn[data-tooltip]::after,
+  .control-group[data-tooltip]::before,
+  .icon-btn[data-tooltip]::before {
+    display: none !important;
+  }
+
+  .voice-select {
+    max-width: 65%;
+    flex-grow: 1;
+    font-size: 0.8rem;
+    padding: 6px;
+  }
+}
+
+.voice-select {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  padding: 4px 8px;
+  outline: none;
+  cursor: pointer;
+  max-width: 140px;
+  text-overflow: ellipsis;
+  transition: all 0.2s ease;
+}
+
+.voice-select:hover {
+  background: rgba(0, 0, 0, 0.08);
+}

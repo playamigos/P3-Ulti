@@ -7,9 +7,11 @@
   - Implement the dynamic focus/dimming visual feature (mocked tracking).
 - [x] **Phase 3: Sensor Integration**
   - [x] Integrate invisible, predictive voice speech recognition (Position & Pace).
-  - Integrate predictive voice-based reading sync (Position & Pace).
-  - Bind all sensors to a single premium "Autopilot" control toggle.
-- [ ] **Phase 4: Advanced Features**
-  - Add support for various file extensions (e.g., .txt, .pdf, .epub).
-  - User settings for dimming levels and text size.
+  - [x] Integrate predictive voice-based reading sync (Position & Pace).
+  - [x] Bind all sensors to a single premium "Autopilot" control toggle.
+- [x] **Phase 4: Advanced Features**
+  - [x] Preloaded Library Dashboard with modular educational books.
+  - [x] Local reading progress tracking and visual progress bars.
+  - [x] "Speak Out" Text-to-Speech Mode with local Piper WASM and boundary-visual sync.
+  - [x] Add user settings for dimming levels and text size.
 
