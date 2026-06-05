@@ -9,13 +9,13 @@ import { sampleText } from './data/sampleText';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 function App() {
-  const [focusRadius, setFocusRadius] = useLocalStorage<number>('ulti-focusRadius', 6);
-  const [transitionSpeed, setTransitionSpeed] = useLocalStorage<number>('ulti-transitionSpeed', 0.90);
-  const [scaleAmplitude, setScaleAmplitude] = useLocalStorage<number>('ulti-scaleAmplitude', 0.5);
-  const [fadeAmplitude, setFadeAmplitude] = useLocalStorage<number>('ulti-fadeAmplitude', 0.4);
-  const [textAlign, setTextAlign] = useLocalStorage<string>('ulti-textAlign', 'center');
-  const [lineSpacing, setLineSpacing] = useLocalStorage<number>('ulti-lineSpacing', 3.5);
-  const [scrollSpeed, setScrollSpeed] = useLocalStorage<number>('ulti-scrollSpeed', 0.05);
+  const [focusRadius, setFocusRadius] = useLocalStorage<number>('ulti-focusRadius', 12);
+  const [transitionSpeed, setTransitionSpeed] = useLocalStorage<number>('ulti-transitionSpeed', 1.50);
+  const [scaleAmplitude, setScaleAmplitude] = useLocalStorage<number>('ulti-scaleAmplitude', 0.2);
+  const [fadeAmplitude, setFadeAmplitude] = useLocalStorage<number>('ulti-fadeAmplitude', 0.3);
+  const [textAlign, setTextAlign] = useLocalStorage<string>('ulti-textAlign', 'left');
+  const [lineSpacing, setLineSpacing] = useLocalStorage<number>('ulti-lineSpacing', 2.5);
+  const [scrollSpeed, setScrollSpeed] = useLocalStorage<number>('ulti-scrollSpeed', 0.01);
 
   // Phase 3 Sensor Integrations States
   // Single Autopilot state triggers autoplay and speech recognition concurrently

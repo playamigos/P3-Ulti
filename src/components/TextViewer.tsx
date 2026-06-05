@@ -57,11 +57,27 @@ const TextViewer: React.FC<TextViewerProps> = ({
 
   const parsedParagraphs = useMemo(() => parseTextToWords(text), [text]);
 
-  // Handle window resize by forcing a re-measure
+  // Handle window resize and font loading by forcing a re-measure
   useEffect(() => {
     const handleResize = () => setStructuredParagraphs(null);
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    let active = true;
+    if (document.fonts) {
+      document.fonts.ready.then(() => {
+        // A minor timeout ensures Safari finishes its initial layout pass with the custom font
+        setTimeout(() => {
+          if (active) {
+            setStructuredParagraphs(null);
+          }
+        }, 50);
+      });
+    }
+
+    return () => {
+      active = false;
+      window.removeEventListener('resize', handleResize);
+    };
   }, []);
 
   // Measurement effect

@@ -14,6 +14,7 @@
   - *IMPORTANT DESIGN NOTE:* We intentionally use `-webkit-text-stroke` to create a faux "bolding" effect for focused words instead of `font-weight`. Changing `font-weight` alters the pixel width of glyphs, triggering expensive DOM layout reflows that ruin smooth CSS transitions. DO NOT revert to using `font-weight`.
 - **Session Persistence:** Integrated local-storage persistence for all slider control parameters (radius, amplitude, line spacing, text alignment, speed).
 - **Responsive Handling:** Hooked into window resize events to automatically reset and recompute physical line measurements instantly.
+- **Font Load Synchronization:** Bound the layout measurement cycle to the CSS Font Loading API (`document.fonts.ready`) with a minor execution timeout. This guarantees that measurements are computed only after the custom Google Fonts (`Lora`, `Adumu`) have been fully loaded and applied, resolving layout breakage and boundary overflow on uncached/hard reloads.
 
 ## Phase 3: Sensor Integration (Zero-Calibration Autopilot Engine)
 - **Auto-Advance Focus Engine (Core):** Implemented a baseline autoplay ticker inside the `TextViewer` component that automatically glides the active focus pointer forward word-by-word at the user's estimated reading speed (WPM), completely eliminating sensor jitter during auto-scrolling.
